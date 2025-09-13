@@ -92,22 +92,22 @@ class FingerPrintRegisterView(APIView):
         )
 
 
+from .utils import extras
+
+
 class FingerPrintDetectView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # Handle request data - use request.data which handles both JSON and form data
         data = request.data if hasattr(request, "data") else {}
 
-        # Check if it's a file upload
+        # Handle file upload or base64 image
+        img_file = None
         if "img" in request.FILES:
             uploaded_file = request.FILES["img"]
-
-            # Validate file type
             allowed_extensions = [".bmp", ".jpg", ".jpeg", ".png"]
             file_extension = os.path.splitext(uploaded_file.name)[1].lower()
-
             if file_extension not in allowed_extensions:
                 return Response(
                     {
@@ -115,39 +115,25 @@ class FingerPrintDetectView(APIView):
                     },
                     status=400,
                 )
-
-            # Validate file size (e.g., max 10MB)
             if uploaded_file.size > 10 * 1024 * 1024:
                 return Response({"error": "File size too large. Maximum size is 10MB."}, status=400)
-
             img_file = uploaded_file
-
-        # Check if it's base64 data
         elif "img" in data:
             img_base64 = data.get("img")
-
             if not img_base64:
                 return Response({"error": "Fingerprint image is required."}, status=400)
-
-            # Convert base64 to image file
             try:
-                # Remove data URL prefix if present (e.g., "data:image/jpeg;base64,")
                 if "," in img_base64:
                     img_base64 = img_base64.split(",")[1]
-
-                # Decode base64 string
                 img_data = base64.b64decode(img_base64)
                 img_file = ContentFile(img_data, name="fingerprint.png")
-
-            except Exception as e:
+            except Exception:
                 return Response({"error": "Invalid base64 image data."}, status=400)
         else:
             return Response(
                 {"error": "Fingerprint image is required (as file upload or base64 data)."},
                 status=400,
             )
-
-        print(f"DEBUG: Received image file: {img_file.name}, size: {img_file.size} bytes")
 
         # Save temporarily to disk with original extension
         file_extension = os.path.splitext(img_file.name)[1].lower()
@@ -156,51 +142,40 @@ class FingerPrintDetectView(APIView):
                 temp_file.write(chunk)
             temp_path = temp_file.name
 
-        print(f"DEBUG: Saved temporary image to: {temp_path}")
-
         try:
-            # Read image using OpenCV
-            image = cv.imread(temp_path, cv.IMREAD_GRAYSCALE)
-            if image is None:
-                print(f"DEBUG: Failed to read image from {temp_path}")
-                return Response({"error": "Invalid image."}, status=400)
+            # Use extras._load_and_validate_image to load image
+            try:
+                image = extras._load_and_validate_image(temp_path)
+            except Exception as e:
+                return Response({"error": f"Invalid image: {str(e)}"}, status=400)
 
-            print(f"DEBUG: Successfully loaded image with shape: {image.shape}")
-
-            # Generate a single embedding vector for inference
-            embedding = extract_fingerprint_embedding(image, method="minutiae", is_augmented=True)
-            print(
-                f"DEBUG: Generated embedding with length: {len(embedding) if embedding is not None else 'None'}"
-            )
+            # Use the remote embedding server for inference
+            try:
+                embedding_result, _ = extras._generate_original_embedding(image)
+                embedding = embedding_result.get("original")
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to generate fingerprint embedding: {str(e)}"}, status=400
+                )
 
             if embedding is None:
-                print("DEBUG: Failed to generate embedding")
                 return Response({"error": "Failed to generate fingerprint embedding."}, status=400)
 
-            query_vectors = [embedding]  # Annoy expects a list of vectors
-            print(f"DEBUG: Query vectors prepared: {len(query_vectors)} vector(s)")
+            query_vectors = [embedding]
 
         finally:
             os.remove(temp_path)
-            print(f"DEBUG: Cleaned up temporary file: {temp_path}")
 
         # Search using Annoy
-        print("DEBUG: Starting Annoy index search...")
         match_id, certainty = search_annoy_index(query_vectors, top_k=5)
-        print(f"DEBUG: Search result - Match ID: {match_id}, Certainty: {certainty}")
 
         # Check if we have any fingerprints in the database
         total_fingerprints = FingerPrint.objects.count()
         total_embeddings = FingerPrintEmbed.objects.count()
-        print(
-            f"DEBUG: Database contains {total_fingerprints} fingerprints and {total_embeddings} embeddings"
-        )
 
         if match_id and certainty > 0.7:
-            print(f"DEBUG: Found potential match with ID {match_id} and certainty {certainty}")
             try:
                 matched_fp = FingerPrint.objects.get(id=match_id)
-                print(f"DEBUG: Successfully retrieved matched fingerprint: {matched_fp}")
                 return Response(
                     {
                         "match": True,
@@ -215,7 +190,6 @@ class FingerPrintDetectView(APIView):
                     }
                 )
             except FingerPrint.DoesNotExist:
-                print(f"DEBUG: Fingerprint with ID {match_id} not found in database")
                 return Response(
                     {
                         "match": False,
@@ -228,11 +202,8 @@ class FingerPrintDetectView(APIView):
                         },
                     },
                     status=400,
-                )  # Changed from 200 to 400 for proper error handling
+                )
 
-        print(
-            f"DEBUG: No match found or certainty too low. Match ID: {match_id}, Certainty: {certainty}"
-        )
         return Response(
             {
                 "match": False,
