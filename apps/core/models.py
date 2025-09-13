@@ -63,6 +63,8 @@ def generate_and_save_embeddings(sender, instance, created, **kwargs):
 
         # Rebuild index only if this is a known fingerprint
         if instance.is_known:
+            from apps.core.tasks import generate_distorted_embeddings_for_fingerprint
+            generate_distorted_embeddings_for_fingerprint.delay(instance.id)
             from .annoy_index import build_annoy_index
 
             build_annoy_index()

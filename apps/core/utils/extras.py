@@ -67,13 +67,14 @@ def image_to_base64(image: np.ndarray) -> str:
 
 def get_embedding_from_server(image: np.ndarray) -> np.ndarray:
     """
-    Send the image as base64 to 127.0.0.1:8088/embed to get the embedding.
+    Send the image as base64 to 26.120.105.190:8088/embed to get the embedding.
     """
-    url = "http://127.0.0.1:8088/embed"
+    url = "http://26.120.105.190:8088/embed"
     img_b64 = image_to_base64(image)
     payload = {"image_base64": img_b64}
     try:
-        response = requests.post(url, json=payload, timeout=30)
+        # Increased timeout to 45 seconds to add buffer
+        response = requests.post(url, json=payload, timeout=45)
         response.raise_for_status()
         data = response.json()
         if "embedding" in data:
@@ -87,16 +88,17 @@ def get_embedding_from_server(image: np.ndarray) -> np.ndarray:
 
 def get_distorted_embeddings_from_server(image: np.ndarray) -> Dict[str, list]:
     """
-    Send the image as base64 to 127.0.0.1:8088/embed_distorted to get embeddings for all distorted versions.
+    Send the image as base64 to 26.120.105.190:8088/embed_distorted to get embeddings for all distorted versions.
 
     Returns:
         Dictionary mapping distorted image filenames to their embedding vectors (as lists).
     """
-    url = "http://127.0.0.1:8088/embed_distorted"
+    url = "http://26.120.105.190:8088/embed_distorted"
     img_b64 = image_to_base64(image)
     payload = {"image_base64": img_b64}
     try:
-        response = requests.post(url, json=payload, timeout=60)
+        # Increased timeout to 90 seconds to add buffer
+        response = requests.post(url, json=payload, timeout=90)
         response.raise_for_status()
         data = response.json()
         if "embeddings" in data:
