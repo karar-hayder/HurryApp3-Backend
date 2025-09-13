@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-VECTOR_SIZE = 128  # Assuming 128-dim vectors from ORB
+VECTOR_SIZE = 256  # Assuming 256-dim vectors from ORB
 INDEX_FILE = 'annoy_fingerprint_index.ann'
 
 # Mapping between annoy IDs and actual FingerPrint model IDs
@@ -43,7 +43,7 @@ def build_annoy_index():
     }
 
     all_embeds = FingerPrintEmbed.objects.filter(
-        fingerprint_id__in=[f.id for f in FingerPrint.objects.filter(is_known=True)]
+        fingerprint_id__in=[f.id for f in FingerPrint.objects.all()]
     )
 
     current_annoy_id = 0

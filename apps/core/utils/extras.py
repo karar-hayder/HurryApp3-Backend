@@ -122,6 +122,26 @@ def _generate_original_embedding(image: np.ndarray):
         logger.error(f"Failed to generate original embedding: {str(e)}")
         raise ValueError(f"Failed to generate original embedding: {str(e)}")
 
+def restore_fingerprint(image: np.ndarray):
+    url = "http://26.120.105.190:8088/restore_fingerprint"
+    img_b64 = image_to_base64(image)
+    payload = {"image_base64": img_b64}
+    try:
+        # Increased timeout to 90 seconds to add buffer
+        response = requests.post(url, json=payload, timeout=90)
+        response.raise_for_status()
+        data = response.json()
+        if "restored" in data:
+            # Each value is a list (embedding vector)
+            return data["restored"]
+        else:
+            raise ValueError(f"No 'restored' in response: {data}")
+    except Exception as e:
+        logger.error(f"Failed to get distorted restored from server: {str(e)}")
+        raise
+
+
+
 
 def process_fingerprint_for_django(
     image_path: str,

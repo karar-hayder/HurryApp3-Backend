@@ -16,16 +16,26 @@ from .utils import extras
 
 
 class FingerPrint(models.Model):
+    id = models.AutoField(primary_key=True, db_index=True)
     name = models.CharField(max_length=255, null=True, blank=True)
+    age = models.PositiveIntegerField(null=True, blank=True)
+    gender = models.CharField(max_length=32, null=True, blank=True)
+    location = models.CharField(max_length=255, null=True, blank=True)
+    source = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        help_text="Context/source, e.g. security, healthcare, visitor, etc.",
+    )
+
+    notes = models.TextField(null=True, blank=True)
     img = models.ImageField(upload_to="fingerprints/", null=True, blank=True)
-    is_known = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        if self.is_known and self.name:
-            return f"Known: {self.name}"
-        return f"Unknown Person (ID: {self.id})"
+        # Remove is_known logic since it may not exist
+        return f"Person (ID: {self.id})"
 
 
 class FingerPrintEmbed(Document):
@@ -42,32 +52,19 @@ class FingerPrintEmbed(Document):
 
 @receiver(post_save, sender=FingerPrint)
 def generate_and_save_embeddings(sender, instance, created, **kwargs):
-    if not created or not instance.img:
-        return
+    # if not created or not instance.img:
+    #     return
 
     image_path = instance.img.path
     if not os.path.exists(image_path):
         return
-
     try:
-        # Only generate the "original" embedding using the direct function
-        image = extras._load_and_validate_image(image_path)
-        embedding_result, _ = extras._generate_original_embedding(image)
-        # embedding_result is a dict like {"original": [vector]}
-        for variant_name, vector in embedding_result.items():
-            FingerPrintEmbed.objects.create(
-                fingerprint_id=instance.id,
-                variant_name=variant_name,
-                embedding=vector,
-            )
+        # Always generate distorted embeddings and rebuild index for any new fingerprint
+        from apps.core.tasks import generate_distorted_embeddings_for_fingerprint
+        generate_distorted_embeddings_for_fingerprint.delay(instance.id)
+        from .annoy_index import build_annoy_index
 
-        # Rebuild index only if this is a known fingerprint
-        if instance.is_known:
-            from apps.core.tasks import generate_distorted_embeddings_for_fingerprint
-            generate_distorted_embeddings_for_fingerprint.delay(instance.id)
-            from .annoy_index import build_annoy_index
-
-            build_annoy_index()
+        build_annoy_index()
 
     except Exception as e:
         import logging

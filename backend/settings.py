@@ -7,10 +7,9 @@ from mongoengine import connect
 
 if not os.environ.get("SECRET_KEY", False):
     from dotenv import load_dotenv
-
     load_dotenv(".env.local")
-BASE_DIR = Path(__file__).resolve().parent.parent
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("SECRET_KEY", None)
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
@@ -25,7 +24,6 @@ CORS_ALLOWED_ORIGINS = (
     if os.environ.get("CORS_ALLOWED_ORIGINS")
     else []
 )
-
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = DEBUG
@@ -43,7 +41,6 @@ CORS_ALLOW_METHODS = [
     "OPTIONS",
 ]
 
-
 REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
@@ -59,7 +56,6 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_BEAT_SCHEDULE = {}
-
 
 INSTALLED_APPS = [
     "corsheaders",
@@ -126,7 +122,6 @@ DATABASES = {
 ## Use .env
 connect(db="hurryapp3", host="mongodb://localhost:27017/hurryapp3")
 
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -147,7 +142,6 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
-
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=4),
@@ -208,72 +202,46 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "simple",
         },
-        **(
-            {
-                "file": {
-                    "level": "INFO",
-                    "class": "logging.handlers.TimedRotatingFileHandler",
-                    "filename": (
-                        os.path.join(LOG_DIR, "django.log") if LOG_DIR else None
-                    ),
-                    "when": "midnight",
-                    "backupCount": 14,
-                    "formatter": "verbose",
-                    "encoding": "utf8",
-                },
-                "error_file": {
-                    "level": "ERROR",
-                    "class": "logging.handlers.TimedRotatingFileHandler",
-                    "filename": (
-                        os.path.join(LOG_DIR, "django.error.log") if LOG_DIR else None
-                    ),
-                    "when": "midnight",
-                    "backupCount": 30,
-                    "formatter": "verbose",
-                    "encoding": "utf8",
-                },
-            }
-            if LOG_DIR
-            else {}
-        ),
     },
     "loggers": {
         "django": {
-            "handlers": ["console"] + (["file", "error_file"] if LOG_DIR else []),
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": True,
         },
         "django.request": {
-            "handlers": ["console"] + (["file", "error_file"] if LOG_DIR else []),
+            "handlers": ["console"],
             "level": "WARNING",
             "propagate": False,
         },
         "apps": {
-            "handlers": ["console"] + (["file", "error_file"] if LOG_DIR else []),
+            "handlers": ["console"],
             "level": apps_level,
             "propagate": True,
         },
         "__main__": {
-            "handlers": ["console"] + (["file", "error_file"] if LOG_DIR else []),
+            "handlers": ["console"],
             "level": main_level,
             "propagate": True,
         },
     },
     "root": {
-        "handlers": ["console"] + (["file", "error_file"] if LOG_DIR else []),
+        "handlers": ["console"],
         "level": "WARNING",
     },
 }
+
+# --- MEDIA CONFIGURATION FOR FINGERPRINTS ---
+MEDIA_URL = "/fingerprints/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "fingerprints")
+# --------------------------------------------
+
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
 
 STATIC_URL = "static/"
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 ASGI_APPLICATION = "backend.asgi.application"
@@ -291,18 +259,3 @@ CHANNEL_LAYERS = {
         },
     },
 }
-
-
-LANGUAGE_CODE = "en-us"
-
-TIME_ZONE = "UTC"
-
-USE_I18N = True
-
-USE_TZ = True
-
-STATIC_URL = "static/"
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-
-
